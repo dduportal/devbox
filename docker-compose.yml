@@ -1,33 +1,75 @@
-data:
-  image: debian:wheezy
-  command: chmod -R 777 /proxy-cache
-  volumes:
-    - /data
-    - /var/log
-    - /proxy-cache
-    - ~/work/mavenRepo/docker:/data/mavenRepo 
-  net: "none"
-proxy:
-  image: clue/polipo
-  command: proxyAddress=0.0.0.0 proxyPort=8123 diskCacheRoot=/proxy-cache logFile=/var/log/polipo.log
-  expose:
-    - "8123"
-  volumes_from:
-    - data
-devbox:
-  build: ./
-  ports:
-    - "2200:22"
-  volumes_from:
-    - data
-  links:
-    - proxy
-  volumes:
-    - /usr/local/bin/docker:/usr/local/bin/docker
-    - /home/docker/.docker:/home/dockerx/.docker
-  environment:
-  - DOCKER_HOST=tcp://10.0.2.15:2376
-  - DOCKER_TLS_VERIFY=1
-  - http_proxy=http://proxy:8123
-  - https_proxy=http://proxy:8123
-  - no_proxy=localhost,127.0.0.1,10.0.2.15
+version: '2'
+
+services:
+  xserver:
+    build: ./docker-materials/xvfb/
+    restart: unless-stopped
+    networks:
+      - devbox-net
+    environment:
+      - DISPLAY_WIDTH=1440
+      - DISPLAY_HEIGHT=900
+
+  vncserver:
+    build: ./docker-materials/x11vnc/
+    restart: always
+    restart: unless-stopped
+    networks:
+      - devbox-net
+    environment:
+      - DISPLAY=xserver:0.0
+    ports:
+      - "5900:5900"
+
+  desktop-base:
+    build: ./docker-materials/xfce/
+    environment:
+      - DISPLAY=xserver:0.0
+    networks:
+      - devbox-net
+
+  novnc:
+    build: ./docker-materials/novnc/
+    restart: unless-stopped
+    command: ["--vnc", "vncserver:5900"]
+    ports:
+      - "9000:9000"
+    networks:
+      - devbox-net
+
+networks:
+  devbox-net:
+
+# data:
+#   image: debian:wheezy
+#   command: chmod -R 777 /proxy-cache
+#   volumes:
+#     - /data
+#     - /var/log
+#     - /proxy-cache
+#     - ~/work/mavenRepo/docker:/data/mavenRepo
+#   net: "none"
+# proxy:
+#   image: clue/polipo
+#   command: proxyAddress=0.0.0.0 proxyPort=8123 diskCacheRoot=/proxy-cache logFile=/var/log/polipo.log
+#   expose:
+#     - "8123"
+#   volumes_from:
+#     - data
+# devbox:
+#   build: ./
+#   ports:
+#     - "2200:22"
+#   volumes_from:
+#     - data
+#   links:
+#     - proxy
+#   volumes:
+#     - /usr/local/bin/docker:/usr/local/bin/docker
+#     - /home/docker/.docker:/home/dockerx/.docker
+#   environment:
+#   - DOCKER_HOST=tcp://10.0.2.15:2376
+#   - DOCKER_TLS_VERIFY=1
+#   - http_proxy=http://proxy:8123
+#   - https_proxy=http://proxy:8123
+#   - no_proxy=localhost,127.0.0.1,10.0.2.15
